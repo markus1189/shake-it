@@ -1,7 +1,8 @@
 #! /usr/bin/env nix-shell
 #! nix-shell -i 'runhaskell --ghc-arg=-threaded --ghc-arg=-Wall'
 #! nix-shell -p 'ghc.withPackages (p: with p; [ shake pandoc wreq lens bytestring text ])'
-#! nix-shell -p unzip coreutils
+#! nix-shell -p unzip coreutils eject
+#! nix-shell --pure
 module Main where
 
 import Data.Maybe (listToMaybe)
@@ -35,7 +36,7 @@ runShakeBuild = shakeArgs shakeOptions{shakeFiles="_build"} $ do
   buildDir </> extractedRevealjs %> \out -> do
     need [buildDir </> revealjsZip]
     putNormal "Extracting..."
-    unit $ cmd [Cwd buildDir] "unzip" [revealjsZip]
+    unit $ cmd [Cwd buildDir] "unzip" ["-o", revealjsZip]
     unit $ cmd [Cwd buildDir] "rename" ["reveal.js-" <> revealjsVersion
                                        ,"reveal.js"
                                        ,"reveal.js-" <> revealjsVersion]
@@ -50,15 +51,16 @@ runShakeBuild = shakeArgs shakeOptions{shakeFiles="_build"} $ do
     let urls = listImages <$> readMarkdown def content
     case urls of
       Left e -> fail (show e)
-      Right images -> need images
+      Right images -> need ((buildDir </>) <$> images)
 
-  "images/*.jpg" %> \out -> do
-    let inp = out -<.> "url"
+  buildDir </> "images/*.jpg" %> \out -> do
+    let inp = joinPath . drop 1 . splitDirectories $ out -<.> "url"
+    putNormal inp
     need [inp]
     url <- listToMaybe . lines <$> liftIO (readFile inp)
     case url of
       Nothing -> fail $ "No url found inside '" <> inp <> "'"
-      Just u -> download u (buildDir </> out)
+      Just u -> download u out
 
 listImages :: Pandoc -> [FilePath]
 listImages = query urls
