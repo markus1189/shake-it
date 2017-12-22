@@ -13,10 +13,8 @@ import           Control.Lens.Operators ((^.))
 import           Control.Monad.IO.Class (MonadIO)
 import qualified Data.ByteString.Lazy as BL
 import           Data.Foldable (for_)
-import           Data.Maybe (listToMaybe)
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
-import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
 import           Development.Shake
@@ -43,6 +41,7 @@ revealjsZip = "revealjs.zip"
 extractedRevealjs :: String
 extractedRevealjs = "reveal.js/README.md"
 
+buildDir :: FilePath
 buildDir = "_build"
 
 readImageSrc :: MonadIO io => String -> io ImageSrc
@@ -59,7 +58,7 @@ runShakeBuild = shakeArgs shakeOptions{shakeFiles="_build"} $ do
 
   buildDir </> revealjsZip %> \out -> download revealjsUrl out
 
-  buildDir </> extractedRevealjs %> \out -> do
+  buildDir </> extractedRevealjs %> \_ -> do
     need [buildDir </> revealjsZip]
     putNormal "Extracting..."
     unzipInBuildDir revealjsZip
@@ -81,31 +80,27 @@ runShakeBuild = shakeArgs shakeOptions{shakeFiles="_build"} $ do
     let inp = joinPath . drop 1 . splitDirectories $ out -<.> "src"
     putNormal inp
     need [inp]
-    ImageSrc url transformations <- readImageSrc inp
-    download (TS.unpack url) out
-    for_ transformations $ unit . applyTransformation out
+    ImageSrc uri ts <- readImageSrc inp
+    download (TS.unpack uri) out
+    for_ ts $ unit . applyTransformation out
 
 unzipInBuildDir :: FilePath -> Action ()
 unzipInBuildDir fp = cmd [Cwd buildDir] bin ["-o", fp]
-  where bin :: String
-        bin = "unzip"
+  where bin = "unzip" :: String
 
 renameRevealJs :: Action ()
 renameRevealJs = cmd [Cwd buildDir] bin ["reveal.js-" <> revealjsVersion
                                         ,"reveal.js"
                                         ,"reveal.js-" <> revealjsVersion]
-  where bin :: String
-        bin = "rename"
+  where bin = "rename" :: String
 
 pandocToReveal :: String -> String -> Action ()
 pandocToReveal inp out = unit $ cmd bin ["-t", "revealjs", "-s", inp, "-o", out]
-  where bin :: String
-        bin = "pandoc"
+  where bin = "pandoc" :: String
 
 applyTransformation :: String -> Text -> Action ()
 applyTransformation out t = cmd bin (words (TS.unpack t) ++ [out, out])
-  where bin :: String
-        bin = "convert"
+  where bin = "convert" :: String
 
 listImages :: Pandoc -> [FilePath]
 listImages = query urls
@@ -113,10 +108,10 @@ listImages = query urls
         urls _ = []
 
 download :: String -> FilePath -> Action ()
-download url target = do
-  putNormal $ "Downloading '" <> url <> "' and writing to '" <> target <> "'"
+download uri target = do
+  putNormal $ "Downloading '" <> uri <> "' and writing to '" <> target <> "'"
   liftIO $ do
     createDirectoryIfMissing True (takeDirectory target)
-    r <- Wreq.get url
+    r <- Wreq.get uri
     BL.writeFile target (r ^. Wreq.responseBody)
   putNormal $ "Finished downloading '" <> target <> "'"
