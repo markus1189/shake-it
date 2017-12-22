@@ -1,31 +1,44 @@
-% Habits
-% John Doe
-% March 22, 2005
+# Shake It - So You Don't Have To Make It
 
-# In the morning
+## Motivation
 
-## Getting up
+Common situation:
+- lots of files
+- goal: create a result (compiled code, image, ...)
+- complex relationship between files
 
-- Turn off alarm
-- Get out of bed
+## Make
 
-## Breakfast
+- well known build-automation took: `make`
 
-- Eat eggs
-- Drink coffee
+> Besides building programs, Make can be used to manage any
+> project where some files must be **updated automatically** from
+> others whenever the others change.
+    
+- often used to build C(++) programs/libraries
+- others: cabal, stack, sbt, maven, gradle
+- most are focused on building programs
 
-# In the evening
+## We Wrote Our Own
 
-## Dinner
+![](images/own-build.jpg)
 
-- Eat spaghetti
-- Drink wine
+## [Shake](http://shakebuild.com/)
 
-------------------
+> Shake is a **library** for writing build systems.
 
-![picture of spaghetti](images/spaghetti.jpg)
+- written in Haskell (of course)
 
-## Going to sleep
+## Pictures
+### Manual
 
-- Get in bed
-- Count sheep
+- google for picture
+- download picture
+- resize picture
+- include in presentation
+- where to store it? git? (license?)
+
+### Automatic
+
+- include image in presentation
+- auto: download and resize
