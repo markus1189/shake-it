@@ -1,8 +1,8 @@
 #! /usr/bin/env nix-shell
--- #! nix-shell -i ghci
+-- #! nix-shell -i "ghci -fdefer-type-errors"
 #! nix-shell -i 'runhaskell --ghc-arg=-threaded --ghc-arg=-Wall'
 #! nix-shell -p 'ghc.withPackages (p: with p; [ shake pandoc wreq lens bytestring text dhall ])'
-#! nix-shell -p unzip coreutils eject imagemagick
+#! nix-shell -p unzip coreutils eject imagemagick graphviz
 #! nix-shell --pure
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -71,18 +71,26 @@ runShakeBuild = shakeArgs shakeOptions{shakeFiles="_build"} $ do
 
   "*.md" %> \out -> do
     content <- liftIO $ readFile out
-    let urls = listImages <$> readMarkdown def content
+    urls <- liftIO . runIO $ listImages <$> readMarkdown def (TS.pack content)
     case urls of
       Left e -> fail (show e)
       Right images -> need ((buildDir </>) <$> images)
 
   buildDir </> "images/*.jpg" %> \out -> do
     let inp = joinPath . drop 1 . splitDirectories $ out -<.> "src"
-    putNormal inp
     need [inp]
     ImageSrc uri ts <- readImageSrc inp
     download (TS.unpack uri) out
     for_ ts $ unit . applyTransformation out
+
+  buildDir </> "graphviz/*.png" %> \out -> do
+    let inp = joinPath . drop 1 . splitDirectories $ out -<.> "dot"
+    need [inp]
+    graphviz inp out
+
+graphviz :: FilePath -> FilePath -> Action ()
+graphviz inp out = cmd bin ["-Tpng", "-o", out, inp]
+  where bin = "dot" :: String
 
 unzipInBuildDir :: FilePath -> Action ()
 unzipInBuildDir fp = cmd [Cwd buildDir] bin ["-o", fp]

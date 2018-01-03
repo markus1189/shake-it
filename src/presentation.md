@@ -19,6 +19,10 @@ Common situation:
 - others: cabal, stack, sbt, maven, gradle
 - most are focused on building programs
 
+## Maintaining A Make Build
+
+![](images/maintain-make.jpg)
+
 ## We Wrote Our Own
 
 ![](images/own-build.jpg)
@@ -28,6 +32,12 @@ Common situation:
 > Shake is a **library** for writing build systems.
 
 - written in Haskell (of course)
+- no assumptions about build result
+- you can build anything!
+
+## Dressing Up For Winter
+
+![](graphviz/dressing.png)
 
 ## Pictures
 ### Manual

@@ -1,0 +1,22 @@
+digraph {
+  dressed -> coat;
+  coat -> pullover;
+  coat -> pants;
+
+  dressed -> hat;
+
+  dressed -> left_boot;
+  dressed -> right_boot;
+  left_boot -> pants;
+  left_boot -> left_sock;
+  right_boot -> pants;
+  right_boot -> right_sock;
+
+  dressed -> gloves;
+  gloves -> left_boot;
+  gloves -> right_boot;
+  gloves -> pants;
+  gloves -> pullover;
+
+  pants -> underwear;
+}
