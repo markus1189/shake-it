@@ -12,11 +12,12 @@ digraph {
   right_boot -> pants;
   right_boot -> right_sock;
 
-  dressed -> gloves;
-  gloves -> left_boot;
-  gloves -> right_boot;
-  gloves -> pants;
-  gloves -> pullover;
+  dressed -> left_glove;
+  dressed -> right_glove;
+  left_glove -> left_boot;
+  right_glove -> right_boot;
+  left_glove -> pants;
+  right_glove -> pants;
 
   pants -> underwear;
 }

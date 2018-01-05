@@ -47,16 +47,24 @@ buildDir = "_build"
 readImageSrc :: MonadIO io => String -> io ImageSrc
 readImageSrc p = liftIO $ D.input D.auto ("./" <> T.pack p)
 
+myShakeOptions :: ShakeOptions
+myShakeOptions = shakeOptions { shakeLint = Just LintBasic
+                              , shakeReport = ["report.html", "report.json"]
+                              , shakeThreads = 0
+                              }
+
 main :: IO ()
 main = runShakeBuild
 
 runShakeBuild :: IO ()
-runShakeBuild = shakeArgs shakeOptions{shakeFiles="_build"} $ do
+runShakeBuild = shakeArgs myShakeOptions $ do
+  resDownload <- newResource "Download" 10
+
   want [buildDir </> "presentation.html"]
 
   phony "clean" $ removeFilesAfter "_build" ["//*"]
 
-  buildDir </> revealjsZip %> \out -> download revealjsUrl out
+  buildDir </> revealjsZip %> \out -> download resDownload revealjsUrl out
 
   buildDir </> extractedRevealjs %> \_ -> do
     need [buildDir </> revealjsZip]
@@ -70,17 +78,18 @@ runShakeBuild = shakeArgs shakeOptions{shakeFiles="_build"} $ do
     pandocToReveal inp out
 
   "*.md" %> \out -> do
-    content <- liftIO $ readFile out
-    urls <- liftIO . runIO $ listImages <$> readMarkdown def (TS.pack content)
+    urls <- traced "parsing" $ do
+      content <- readFile out
+      runIO $ listImages <$> readMarkdown def (TS.pack content)
     case urls of
       Left e -> fail (show e)
       Right images -> need ((buildDir </>) <$> images)
 
-  buildDir </> "images/*.jpg" %> \out -> do
+  [ buildDir </> "images/*" <.> ext | ext <- [ "jpg", "png", "gif" ] ] |%> \out -> do
     let inp = joinPath . drop 1 . splitDirectories $ out -<.> "src"
     need [inp]
-    ImageSrc uri ts <- readImageSrc inp
-    download (TS.unpack uri) out
+    ImageSrc uri ts <- traced "image-src" (readImageSrc inp)
+    download resDownload (TS.unpack uri) out
     for_ ts $ unit . applyTransformation out
 
   buildDir </> "graphviz/*.png" %> \out -> do
@@ -89,7 +98,9 @@ runShakeBuild = shakeArgs shakeOptions{shakeFiles="_build"} $ do
     graphviz inp out
 
 graphviz :: FilePath -> FilePath -> Action ()
-graphviz inp out = cmd bin ["-Tpng", "-o", out, inp]
+graphviz inp out = do
+  needed [inp]
+  cmd bin ["-Tpng", "-o", out, inp]
   where bin = "dot" :: String
 
 unzipInBuildDir :: FilePath -> Action ()
@@ -103,7 +114,9 @@ renameRevealJs = cmd [Cwd buildDir] bin ["reveal.js-" <> revealjsVersion
   where bin = "rename" :: String
 
 pandocToReveal :: String -> String -> Action ()
-pandocToReveal inp out = unit $ cmd bin ["-t", "revealjs", "-s", inp, "-o", out]
+pandocToReveal inp out = do
+  needed [inp]
+  unit $ cmd bin ["-t", "revealjs", "-s", inp, "-o", out]
   where bin = "pandoc" :: String
 
 applyTransformation :: String -> Text -> Action ()
@@ -115,11 +128,8 @@ listImages = query urls
   where urls (Image _ _ (src, _)) = [src]
         urls _ = []
 
-download :: String -> FilePath -> Action ()
-download uri target = do
-  putNormal $ "Downloading '" <> uri <> "' and writing to '" <> target <> "'"
-  liftIO $ do
-    createDirectoryIfMissing True (takeDirectory target)
-    r <- Wreq.get uri
-    BL.writeFile target (r ^. Wreq.responseBody)
-  putNormal $ "Finished downloading '" <> target <> "'"
+download :: Resource -> String -> FilePath -> Action ()
+download res uri target = withResource res 1 $ traced "download" $ do
+  createDirectoryIfMissing True (takeDirectory target)
+  r <- Wreq.get uri
+  BL.writeFile target (r ^. Wreq.responseBody)

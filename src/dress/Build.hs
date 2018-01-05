@@ -10,8 +10,24 @@ main :: IO ()
 main = shakeArgs shakeOptions { shakeThreads = 0 } $ do
   want [ "dressed" ]
 
+  phony "clean" $ do
+    removeFilesAfter "." [ "left boot"
+                         , "right boot"
+                         , "coat"
+                         , "hat"
+                         , "right sock"
+                         , "left sock"
+                         , "underwear"
+                         , "left glove"
+                         , "right glove"
+                         , "dressed"
+                         , "pullover"
+                         , "pants"
+                         , "boots"
+                         ]
+
   "dressed" %> \out -> do
-    need [ "coat", "hat", "left boot", "right boot", "gloves" ]
+    need [ "coat", "hat", "left boot", "right boot", "left glove", "right glove" ]
     putNormal "You are ready to go!"
     createFile out
 
@@ -26,8 +42,9 @@ main = shakeArgs shakeOptions { shakeThreads = 0 } $ do
     putNormal ("Putting on: " ++ out)
     createFile out
 
-  "gloves" %> \out -> do
-    need ["left boot", "right boot", "pants", "pullover"]
+  ["left glove", "right glove"] |%> \out -> do
+    let side = head (words out)
+    need [side ++ " boot", "pants"]
     putNormal ("Putting on: " ++ out)
     createFile out
 
