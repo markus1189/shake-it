@@ -44,7 +44,15 @@ Common situation:
 # Simple things first
 
 - independent things are run in parallel
+
+![](graphviz/dressing_parallel.png)
+
+# Simple things first
+
 - incremental rebuild if only one file changes
+
+# Simple things first
+
 - you can also get a nice report
 
 # But Wait!
@@ -53,10 +61,19 @@ Common situation:
 
 # Show Me The Monads Already
 
-The two important monads in Shake:
+The two important monadic datatypes in Shake:
 
 1. `Rules :: * -> *`
+
+```scala
+newtype Rules a = Rules (WriterT SRules (ReaderT ShakeOptions IO) a)
+```
+
 2. `Action :: * -> *`
+
+```scala
+newtype Action a = Action (ReaderT (S Global Local) (ContT () IO) a)
+```
 
 # Printing Information
 
