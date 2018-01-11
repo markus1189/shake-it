@@ -116,7 +116,11 @@ renameRevealJs = cmd [Cwd buildDir] bin ["reveal.js-" <> revealjsVersion
 pandocToReveal :: String -> String -> Action ()
 pandocToReveal inp out = do
   needed [inp]
-  unit $ cmd bin ["-t", "revealjs", "-s", inp, "-o", out]
+  unit $ cmd bin ["-V", "theme=solarized"
+                 ,"-t", "revealjs"
+                 ,"-s", inp
+                 ,"-o", out
+                 ]
   where bin = "pandoc" :: String
 
 applyTransformation :: String -> Text -> Action ()
