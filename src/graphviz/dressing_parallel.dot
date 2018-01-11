@@ -1,0 +1,12 @@
+digraph {
+  rankdir=LR;
+  
+  dressed -> coat;
+  dressed -> hat;
+  dressed -> left_boot;
+  dressed -> right_boot;
+  dressed -> left_glove;
+  dressed -> right_glove;
+
+  coat -> pullover;
+}

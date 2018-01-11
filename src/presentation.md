@@ -37,7 +37,7 @@ Common situation:
 - no assumptions about build result
 - you can build anything!
 
-# Dressing Up For Winter
+# Dressing Up
 
 ![](graphviz/dressing.png)
 
@@ -50,6 +50,12 @@ Common situation:
 # Simple things first
 
 - incremental rebuild if only one file changes
+
+```
+> ./Build.hs clean && ./Build.hs
+> rm coat && ./Build.hs
+> rm 'right sock' && ./Build.hs
+```
 
 # Simple things first
 
