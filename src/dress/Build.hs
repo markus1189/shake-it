@@ -3,27 +3,30 @@
 #! nix-shell -p 'ghc.withPackages (p: with p; [ shake ])'
 #! nix-shell --pure
 
-import Development.Shake
+import Control.Concurrent (threadDelay)
 import Data.Foldable (for_)
+import Development.Shake
 
 main :: IO ()
-main = shakeArgs shakeOptions { shakeThreads = 0 } $ do
+main = shakeArgs shakeOptions { shakeThreads = 0
+                              , shakeReport = [ "report.html" ]
+                              } $ do
   want [ "dressed" ]
 
   phony "clean" $ do
-    removeFilesAfter "." [ "left boot"
-                         , "right boot"
-                         , "coat"
-                         , "hat"
-                         , "right sock"
-                         , "left sock"
-                         , "underwear"
-                         , "left glove"
-                         , "right glove"
-                         , "dressed"
-                         , "pullover"
-                         , "pants"
-                         , "boots"
+    removeFilesAfter "." ["left boot"
+                         ,"right boot"
+                         ,"coat"
+                         ,"hat"
+                         ,"right sock"
+                         ,"left sock"
+                         ,"underwear"
+                         ,"left glove"
+                         ,"right glove"
+                         ,"dressed"
+                         ,"pullover"
+                         ,"pants"
+                         ,"boots"
                          ]
 
   "dressed" %> \out -> do
@@ -62,4 +65,6 @@ simple names = for_ names $ \name ->
     createFile out
 
 createFile :: FilePath -> Action ()
-createFile fp = writeFile' fp []
+createFile fp = traced fp $ do
+  liftIO (threadDelay (1000*1000))
+  writeFile' fp []
