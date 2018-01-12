@@ -63,7 +63,7 @@ Common situation:
 
 # But Wait!
 
-![](images/theres-more.gif)
+There's more!
 
 # Show Me The Monads Already
 

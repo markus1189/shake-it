@@ -3,6 +3,7 @@
 #! nix-shell -i 'runhaskell --ghc-arg=-threaded --ghc-arg=-Wall'
 #! nix-shell -p 'ghc.withPackages (p: with p; [ shake pandoc wreq lens bytestring text dhall ])'
 #! nix-shell -p unzip coreutils eject imagemagick graphviz
+#! nix-shell -p 'texlive.combine {inherit (texlive) scheme-medium beamer listings minted cleveref microtype babel todonotes chngcntr excludeonly upquote ifplatform xstring enumitem;}'
 #! nix-shell --pure
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -51,6 +52,7 @@ myShakeOptions :: ShakeOptions
 myShakeOptions = shakeOptions { shakeLint = Just LintBasic
                               , shakeReport = ["report.html", "report.json"]
                               , shakeThreads = 0
+                              , shakeColor = True
                               }
 
 main :: IO ()
@@ -60,11 +62,27 @@ runShakeBuild :: IO ()
 runShakeBuild = shakeArgs myShakeOptions $ do
   resDownload <- newResource "Download" 10
 
-  want [buildDir </> "presentation.html"]
+  want ([buildDir </> tgt | tgt <- ["presentation.html", "presentation.pdf"]])
 
   phony "clean" $ removeFilesAfter "_build" ["//*"]
 
-  buildDir </> revealjsZip %> \out -> download resDownload revealjsUrl out
+  buildDir </> "presentation.html" %> \out -> do
+    let inp = takeFileName (out -<.> "md")
+    need [inp, buildDir </> extractedRevealjs]
+    pandocToReveal inp out
+
+  buildDir </> "*.md" %> \out -> do
+    alwaysRerun
+    copyFile' (dropDirectories 1 out) out
+
+  "*.md" %> \out -> do
+    alwaysRerun
+    urls <- traced "parsing markdown" $ do
+      content <- readFile out
+      runIO $ listImages <$> readMarkdown def (TS.pack content)
+    case urls of
+      Left e -> fail (show e)
+      Right images -> need ((buildDir </>) <$> images)
 
   buildDir </> extractedRevealjs %> \_ -> do
     need [buildDir </> revealjsZip]
@@ -72,35 +90,38 @@ runShakeBuild = shakeArgs myShakeOptions $ do
     unzipInBuildDir revealjsZip
     renameRevealJs
 
-  buildDir </> "presentation.html" %> \out -> do
-    let inp = takeFileName (out -<.> "md")
-    need [inp, buildDir </> extractedRevealjs]
-    pandocToReveal inp out
-
-  "*.md" %> \out -> do
-    urls <- traced "parsing" $ do
-      content <- readFile out
-      runIO $ listImages <$> readMarkdown def (TS.pack content)
-    case urls of
-      Left e -> fail (show e)
-      Right images -> need ((buildDir </>) <$> images)
+  buildDir </> revealjsZip %> \out -> download resDownload revealjsUrl out
 
   [ buildDir </> "images/*" <.> ext | ext <- [ "jpg", "png", "gif" ] ] |%> \out -> do
-    let inp = joinPath . drop 1 . splitDirectories $ out -<.> "src"
+    let inp = dropDirectories 1 $ out -<.> "src"
     need [inp]
     ImageSrc uri ts <- traced "image-src" (readImageSrc inp)
     download resDownload (TS.unpack uri) out
     for_ ts $ unit . applyTransformation out
 
   buildDir </> "graphviz/*.png" %> \out -> do
-    let inp = joinPath . drop 1 . splitDirectories $ out -<.> "dot"
+    let inp = dropDirectories 1 $ out -<.> "dot"
     need [inp]
     graphviz inp out
 
+  "//*.pdf" %> \out -> do
+    let inp = out -<.> "tex"
+    need [inp]
+    latexmk (takeDirectory inp) (".." </> inp)
+
+  "//*.tex" %> \out -> do
+    let inp = out -<.> "md"
+    need [inp]
+    pandocToBeamer inp out
+
+latexmk :: FilePath -> FilePath -> Action ()
+latexmk cwd inp = do
+  cmd [Cwd cwd] bin ["-silent", "-g", "-shell-escape", "-pdf", inp]
+  where bin = "latexmk" :: String
+
 graphviz :: FilePath -> FilePath -> Action ()
 graphviz inp out = do
-  needed [inp]
-  cmd bin ["-Tpng", "-o", out, inp]
+  cmd bin ["-Tpng", "-Gdpi=300","-o", out, inp]
   where bin = "dot" :: String
 
 unzipInBuildDir :: FilePath -> Action ()
@@ -123,6 +144,12 @@ pandocToReveal inp out = do
                  ]
   where bin = "pandoc" :: String
 
+pandocToBeamer :: String -> String -> Action ()
+pandocToBeamer inp out = do
+  needed [inp]
+  unit $ cmd bin ["-t", "beamer","-s", inp, "-o", out]
+  where bin = "pandoc" :: String
+
 applyTransformation :: String -> Text -> Action ()
 applyTransformation out t = cmd bin (words (TS.unpack t) ++ [out, out])
   where bin = "convert" :: String
@@ -137,3 +164,6 @@ download res uri target = withResource res 1 $ traced "download" $ do
   createDirectoryIfMissing True (takeDirectory target)
   r <- Wreq.get uri
   BL.writeFile target (r ^. Wreq.responseBody)
+
+dropDirectories :: Int -> FilePath -> FilePath
+dropDirectories n = joinPath . drop n . splitDirectories
