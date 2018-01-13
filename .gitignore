@@ -5,3 +5,10 @@
 /src/report.html
 /src/report.json
 src/dress/_build
+/src/presentation.aux
+/src/presentation.fls
+/src/presentation.log
+/src/presentation.out
+/src/presentation.tex
+/src/presentation.vrb
+/src/live.txt

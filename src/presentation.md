@@ -91,6 +91,11 @@ Shake provides several commands to print stuff:
 
 # Running External Commands
 
+Set env variables
+echo stderr
+change directory
+etc
+
 # Working With Files
 
 # How To Write Builds: Rules
