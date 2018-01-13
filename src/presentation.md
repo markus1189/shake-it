@@ -1,6 +1,9 @@
 ---
 title: Shake It - So You Don't Have To Make It
+author: Markus Hauck
 ---
+# Motivation
+\section{Motivation}
 # Motivation
 
 Common situation:
@@ -9,9 +12,9 @@ Common situation:
 - goal: create a result (compiled code, image, ...)
 - complex relationship between files
 
+# Intro
+\section{Intro}
 # Make
-
-- well known build-automation tool: `make`
 
 > Besides building programs, Make can be used to manage any
 > project where some files must be **updated automatically** from
@@ -23,11 +26,11 @@ Common situation:
 
 # Maintaining A Make Build
 
-![](images/maintain-make.jpg)
+![Definitely not fun](images/maintain-make.jpg){width=80%}
 
 # We Wrote Our Own
 
-![](images/own-build.jpg)
+![Even worse: custom build](images/own-build.jpg){width=80%}
 
 # [Shake](http://shakebuild.com/)
 
@@ -37,15 +40,15 @@ Common situation:
 - no assumptions about build result
 - you can build anything!
 
+# Example
+\section{Example}
 # Dressing Up
 
-![](graphviz/dressing.png)
+![Dress up for winter](graphviz/dressing.png){width=90%}
 
 # Simple things first
 
-- independent things are run in parallel
-
-![](graphviz/dressing_parallel.png)
+![Run independent things in parallel](graphviz/dressing_parallel.png){height=60% align=center}
 
 # Simple things first
 
@@ -65,21 +68,33 @@ Common situation:
 
 There's more!
 
+# The Library
+\section{The Library}
 # Show Me The Monads Already
 
 The two important monadic datatypes in Shake:
 
-1. `Rules :: * -> *`
+- Monad to generate rules: `Rules :: * -> *`
 
-```scala
-newtype Rules a = Rules (WriterT SRules (ReaderT ShakeOptions IO) a)
+\footnotesize
+```haskell
+newtype Rules a = 
+  Rules (WriterT SRules 
+          (ReaderT ShakeOptions IO) 
+            a)
 ```
+\normalsize
 
-2. `Action :: * -> *`
+- Monad to describe build actions: `Action :: * -> *`
 
-```scala
-newtype Action a = Action (ReaderT (S Global Local) (ContT () IO) a)
+\footnotesize
+```haskell
+newtype Action a = 
+    Action (ReaderT (S Global Local) 
+             (ContT () IO) 
+               a)
 ```
+\normalsize
 
 # Printing Information
 
@@ -151,9 +166,19 @@ Shake also supports tracking of other things
 - modifying is a nightmare
 - let's shake it
 
+# Case Studies
+\section{Case Studies}
+
 # Producing the presentation
 
-# Use Case: Organizing Photos
+This whole presentation is built with Shake
+
+- all figures are compiled from sources
+- images are downloaded
+- latex is compiled
+- reveal.js downloaded
+
+# Organizing Photos
 
 - basis: `.RAW` files
 - editing creates a "sidecar" file without touching the `.RAW`

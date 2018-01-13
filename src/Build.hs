@@ -66,6 +66,10 @@ runShakeBuild = shakeArgs myShakeOptions $ do
 
   phony "clean" $ removeFilesAfter "_build" ["//*"]
 
+  phony "copy-beamer-theme" $ do
+    files <- getDirectoryFiles "beamer-theme" ["*.sty"]
+    for_ files $ \file -> copyFile' ("beamer-theme" </> file) (buildDir </> file)
+
   buildDir </> "presentation.html" %> \out -> do
     let inp = takeFileName (out -<.> "md")
     need [inp, buildDir </> extractedRevealjs]
@@ -106,7 +110,7 @@ runShakeBuild = shakeArgs myShakeOptions $ do
 
   "//*.pdf" %> \out -> do
     let inp = out -<.> "tex"
-    need [inp]
+    need [inp, "copy-beamer-theme"]
     latexmk (takeDirectory inp) (".." </> inp)
 
   "//*.tex" %> \out -> do
@@ -147,7 +151,15 @@ pandocToReveal inp out = do
 pandocToBeamer :: String -> String -> Action ()
 pandocToBeamer inp out = do
   needed [inp]
-  unit $ cmd bin ["-t", "beamer","-s", inp, "-o", out]
+  unit $ cmd bin ["-V", "theme=codecentric"
+                 ,"-V", "navigation=horizontal"
+                 ,"-V", "titlegraphic="
+                 ,"-t", "beamer"
+                 ,"--listings"
+                 ,"--highlight-style", "haddock"
+                 ,"-s", inp
+                 ,"-o", out
+                 ]
   where bin = "pandoc" :: String
 
 applyTransformation :: String -> Text -> Action ()
