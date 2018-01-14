@@ -1,10 +1,8 @@
 #! /usr/bin/env nix-shell
 -- #! nix-shell -i "ghci -fdefer-type-errors"
-#! nix-shell -i 'runhaskell --ghc-arg=-threaded --ghc-arg=-Wall'
-#! nix-shell -p 'ghc.withPackages (p: with p; [ shake pandoc wreq lens bytestring text dhall ])'
-#! nix-shell -p unzip coreutils eject imagemagick graphviz
-#! nix-shell -p 'texlive.combine {inherit (texlive) scheme-medium beamer listings minted cleveref microtype babel todonotes chngcntr excludeonly upquote ifplatform xstring enumitem;}'
+#! nix-shell deps.nix -i 'runhaskell --ghc-arg=-threaded --ghc-arg=-Wall'
 #! nix-shell --pure
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeApplications #-}
