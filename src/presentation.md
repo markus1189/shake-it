@@ -26,7 +26,7 @@ Common situation:
 
 # Maintaining A Make Build
 
-![Definitely not fun](images/maintain-make.jpg){width=80%}
+![Definitely not fun](images/maintain-make.jpg){width=60%}
 
 # We Wrote Our Own
 
