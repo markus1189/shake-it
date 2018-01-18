@@ -16,6 +16,7 @@ runCommand "shake-it-build-inputs" {
         bytestring
         text
         dhall
+        hlint
       ]
     ))
     (texlive.combine {
@@ -33,6 +34,7 @@ runCommand "shake-it-build-inputs" {
       upquote
       ifplatform
       xstring
+      xcolor
       enumitem;
     })
   ];

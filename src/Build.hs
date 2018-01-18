@@ -1,5 +1,5 @@
 #! /usr/bin/env nix-shell
--- #! nix-shell -i "ghci -fdefer-type-errors"
+-- #! nix-shell deps.nix -i "ghci -fdefer-type-errors"
 #! nix-shell deps.nix -i 'runhaskell --ghc-arg=-threaded --ghc-arg=-Wall'
 #! nix-shell --pure
 
@@ -14,8 +14,8 @@ import qualified Data.ByteString.Lazy as BL
 import           Data.Foldable (for_)
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
-import qualified Data.Text.Lazy as T
 import qualified Data.Text as TS
+import qualified Data.Text.Lazy as T
 import           Development.Shake
 import           Development.Shake.FilePath
 import qualified Dhall as D
@@ -23,6 +23,7 @@ import qualified Network.Wreq as Wreq
 import           System.Directory (createDirectoryIfMissing)
 import           Text.Pandoc
 import           Text.Pandoc.Walk
+
 
 data ImageSrc = ImageSrc { url :: Text, transformations :: [Text] } deriving (Show, D.Generic)
 
@@ -59,32 +60,40 @@ main = runShakeBuild
 runShakeBuild :: IO ()
 runShakeBuild = shakeArgs myShakeOptions $ do
   resDownload <- newResource "Download" 10
+  resDisk <- newResource "Disk" 10
 
   want ([buildDir </> tgt | tgt <- ["presentation.html", "presentation.pdf"]])
 
   phony "clean" $ removeFilesAfter "_build" ["//*"]
 
-  phony "copy-beamer-theme" $ do
-    files <- getDirectoryFiles "beamer-theme" ["*.sty"]
-    for_ files $ \file -> copyFile' ("beamer-theme" </> file) (buildDir </> file)
-
   buildDir </> "presentation.html" %> \out -> do
-    let inp = takeFileName (out -<.> "md")
+    let inp = out -<.> "md"
     need [inp, buildDir </> extractedRevealjs]
     pandocToReveal inp out
 
   buildDir </> "*.md" %> \out -> do
-    alwaysRerun
-    copyFile' (dropDirectories 1 out) out
+    let inp = dropDirectory1 out
+    need [inp]
+    copyFileChanged inp out
 
   "*.md" %> \out -> do
     alwaysRerun
-    urls <- traced "parsing markdown" $ do
+    pandocAST <- traced "parsing markdown" $ do
       content <- readFile out
-      runIO $ listImages <$> readMarkdown def (TS.pack content)
-    case urls of
-      Left e -> fail (show e)
-      Right images -> need ((buildDir </>) <$> images)
+      result <- runIO $ readMarkdown (def { readerExtensions = pandocExtensions }) (TS.pack content)
+      case result of
+        Left e -> fail (show e)
+        Right ast -> pure ast
+    let images = (buildDir </>) <$> listImages pandocAST
+        blocks = extractCodeBlocks pandocAST
+    snippetFiles <- forP (zip [(1::Int)..] blocks) $ \(i, block) -> do
+      let fname = buildDir </> ("code-block-" ++ show i ++ ".hs")
+      withResource resDisk 1 $ writeFileChanged fname block
+      pure fname
+    need (images ++ snippetFiles)
+
+  buildDir </> "*.hs" %> \out -> do
+    hlint out
 
   buildDir </> extractedRevealjs %> \_ -> do
     need [buildDir </> revealjsZip]
@@ -92,23 +101,30 @@ runShakeBuild = shakeArgs myShakeOptions $ do
     unzipInBuildDir revealjsZip
     renameRevealJs
 
-  buildDir </> revealjsZip %> \out -> download resDownload revealjsUrl out
+  buildDir </> revealjsZip %> \out ->
+    download resDownload revealjsUrl out
+
+  buildDir </> "screenshots" </> "*.png" %> \out -> do
+    let inp = dropDirectory1 out
+    copyFileChanged inp out
 
   [ buildDir </> "images/*" <.> ext | ext <- [ "jpg", "png", "gif" ] ] |%> \out -> do
-    let inp = dropDirectories 1 $ out -<.> "src"
+    let inp = dropDirectory1 $ out -<.> "src"
     need [inp]
     ImageSrc uri ts <- traced "image-src" (readImageSrc inp)
     download resDownload (TS.unpack uri) out
     for_ ts $ unit . applyTransformation out
 
   buildDir </> "graphviz/*.png" %> \out -> do
-    let inp = dropDirectories 1 $ out -<.> "dot"
+    let inp = dropDirectory1 $ out -<.> "dot"
     need [inp]
     graphviz inp out
 
   "//*.pdf" %> \out -> do
     let inp = out -<.> "tex"
-    need [inp, "copy-beamer-theme"]
+    files <- getDirectoryFiles "beamer-theme" ["*.sty"]
+    for_ files $ \file -> copyFileChanged ("beamer-theme" </> file) (buildDir </> file)
+    need [inp]
     latexmk (takeDirectory inp) (".." </> inp)
 
   "//*.tex" %> \out -> do
@@ -116,9 +132,19 @@ runShakeBuild = shakeArgs myShakeOptions $ do
     need [inp]
     pandocToBeamer inp out
 
+hlint :: FilePath -> Action ()
+hlint file = do
+  cmd_ [EchoStdout False, WithStdout True] bin [file]
+  where bin = "hlint" :: String
+
 latexmk :: FilePath -> FilePath -> Action ()
 latexmk cwd inp = do
-  cmd [Cwd cwd] bin ["-silent", "-g", "-shell-escape", "-pdf", inp]
+  cmd [Cwd cwd
+      ,WithStdout True
+      ,EchoStdout False
+      ,EchoStderr False
+      ,Stdin ""
+      ] bin ["-g", "-shell-escape", "-pdf", inp]
   where bin = "latexmk" :: String
 
 graphviz :: FilePath -> FilePath -> Action ()
@@ -127,7 +153,11 @@ graphviz inp out = do
   where bin = "dot" :: String
 
 unzipInBuildDir :: FilePath -> Action ()
-unzipInBuildDir fp = cmd [Cwd buildDir] bin ["-o", fp]
+unzipInBuildDir fp = cmd [Cwd buildDir
+                         ,EchoStdout False
+                         ,EchoStderr False
+                         ,WithStdout True
+                         ] bin ["-o", fp]
   where bin = "unzip" :: String
 
 renameRevealJs :: Action ()
@@ -153,7 +183,7 @@ pandocToBeamer inp out = do
                  ,"-V", "navigation=horizontal"
                  ,"-V", "titlegraphic="
                  ,"-t", "beamer"
-                 ,"--listings"
+                 ,"-M", "listings=true"
                  ,"--highlight-style", "haddock"
                  ,"-s", inp
                  ,"-o", out
@@ -169,11 +199,14 @@ listImages = query urls
   where urls (Image _ _ (src, _)) = [src]
         urls _ = []
 
+extractCodeBlocks :: Pandoc -> [String]
+extractCodeBlocks = query codeBlocks
+  where codeBlocks (CodeBlock (_,classes,_) content) | "haskell" `elem` classes = [content]
+                                                     | otherwise = []
+        codeBlocks _ = []
+
 download :: Resource -> String -> FilePath -> Action ()
 download res uri target = withResource res 1 $ traced "download" $ do
   createDirectoryIfMissing True (takeDirectory target)
   r <- Wreq.get uri
   BL.writeFile target (r ^. Wreq.responseBody)
-
-dropDirectories :: Int -> FilePath -> FilePath
-dropDirectories n = joinPath . drop n . splitDirectories
