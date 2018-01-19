@@ -9,6 +9,7 @@
 module Main where
 
 import           Control.Lens.Operators ((^.))
+import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO)
 import qualified Data.ByteString.Lazy as BL
 import           Data.Foldable (for_)
@@ -161,7 +162,10 @@ unzipInBuildDir fp = cmd [Cwd buildDir
   where bin = "unzip" :: String
 
 renameRevealJs :: Action ()
-renameRevealJs = cmd [Cwd buildDir] bin ["reveal.js-" <> revealjsVersion
+renameRevealJs = do
+  exists <- doesFileExist "reveal.js.zip"
+  when exists . liftIO $ removeFiles "." ["reveal.js.zip"]
+  cmd [Cwd buildDir] bin ["reveal.js-" <> revealjsVersion
                                         ,"reveal.js"
                                         ,"reveal.js-" <> revealjsVersion]
   where bin = "rename" :: String
