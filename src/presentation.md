@@ -1,6 +1,7 @@
 ---
 title: Shake It - So You Don't Have To Make It
 author: Markus Hauck
+institute: codecentric
 ---
 # Motivation
 \section{Motivation}
