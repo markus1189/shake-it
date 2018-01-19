@@ -291,8 +291,11 @@ withTempDir
 
 # Reports
 
-TODODODODODODODODODO
+- shake can produce reports in html and other formats
+- the html version is interactively explorable
+- let's look at a report!
 
+# Even Deeper
 \section{Even Deeper}
 # Even Deeper
 
@@ -423,7 +426,6 @@ newtype Action a =
 
 # Case Studies
 \section{Case Studies}
-
 # Case Studies
 
 - presentations using reveal.js or LaTeX
@@ -443,12 +445,16 @@ newtype Action a =
 # Presentation: Pictures - Automatically
 - reference image in presentation
 - define how to download and how to resize in `image/*.src` files
+\footnotesize
 ```
 {
-  url = "https://i0.wp.com/media.boingboing.net/wp-content/uploads/2016/04/tumblr_o5kf96uI0y1ugyavxo1_1280.jpg",
-  transformations = ["-resize 1101"]
+  url = "http://cool.image.de/cool.jpg",
+  transformations = ["-resize 800x600",
+                     "-caption Cool-Image"]
 }
 ```
+\normalsize
+
 - define how to convert `.dot` to `.png` (graphviz)
 
 # How to do it
@@ -516,3 +522,6 @@ This whole presentation is built with Shake
 - produce a smaller resized copy for sharing
 - label the copy with watermark and exif information
 - use resources to limit parallel developing of pictures
+
+# The End
+\section{The End}
