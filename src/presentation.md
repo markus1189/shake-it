@@ -3,27 +3,27 @@ title: Shake It - So You Don't Have To Make It
 author: Markus Hauck
 institute: codecentric
 ---
-# Motivation
-\section{Motivation}
+# Introduction
+\section{Introduction}
 # Motivation
 
 Common situation:
 
 - lots of files
-- goal: create a result (compiled code, image, ...)
+- target: create a result (compiled code, image, ...)
 - complex relationship between files
 
-# Intro
-\section{Intro}
+- this talk: use `Shake` to automate work
+
 # Make
 
-> Besides building programs, Make can be used to manage any
-> project where some files must be **updated automatically** from
-> others whenever the others change.
-    
+> Besides building programs, Make can be used to manage any project
+> where some files must be **updated automatically** from others
+> whenever the others change.
+
 - often used to build C(++) programs/libraries
-- others: cabal, stack, sbt, maven, gradle
-- most are focused on building programs
+- other build systems: cabal, stack, sbt, maven, gradle
+- most are focused on building *programs*
 
 # Maintaining A Make Build
 
@@ -49,8 +49,6 @@ Common situation:
 - (let's forget about the unprincipled rest for now)
 - and `Monad` is far more powerful than `Applicative`
 
-# Example
-\section{Example}
 # Dressing Up
 
 ![Dress up for winter](graphviz/dressing.png){width=90%}
@@ -69,12 +67,13 @@ Common situation:
 > rm 'right sock' && ./Build.hs
 ```
 
-# The Library
+# Using Shake
 \section{Using Shake}
-# The Library
+# It's a Library
 
 - `Shake` is meant to be used as a library
 - use Haskell to describe your rules
+- use rules to build your output
 
 \footnotesize
 ```haskell
@@ -88,23 +87,23 @@ main = shakeArgs shakeOptions $ do
 ```
 \normalsize
 
-# The Library
+# It's a Library
 
-It's a library! Awesome because:
+Awesome because:
 
 - `Turtle` for shell scripts in Haskell
 - `Dhall` to handle configs
 - `Wreq` for arbitrary http calls
 - `Pandoc` for conversions of documents
-- ...
+- `lens`, `pipes`, `conduit`, `async`, ...
 
-# The Library
+# Rules
 
-you define rules inside the `Rules` monad
+you define rules inside the `Rules` (monad)
 
 \footnotesize
 ```haskell
-(%>) :: FilePattern -> (FilePath -> Action ()) -> Rules () 
+(%>) :: FilePattern -> (FilePath -> Action ()) -> Rules ()
 -- usage:
 "filepattern" %> \outPath -> doSomethingWith outPath
 ```
@@ -112,9 +111,9 @@ you define rules inside the `Rules` monad
 
 rules specify an `Action` to build the `outPath`
 
-# The Library
+# And Action
 
-The file building action is where you have to do your work
+The file building *action* is where you have to do your work
 
 \footnotesize
 ```haskell
@@ -123,11 +122,64 @@ generateTime outPath = do
   putNormal "Asking the gods for the current time"
   Stdout stdout <- cmd "date"
   return stdout
-  
+
 dateRule :: Rules ()
 dateRule = "*.time*" %> generateTime
 ```
 \normalsize
+
+# And Action
+
+- `Action` has a `MonadIO` instance -> `liftIO`
+- use predefined functions in `Shake`
+  - running external commands
+  - perform tracked IO operations
+  - depend on inputs
+
+# Writing Rules
+
+\footnotesize
+```haskell
+-- glob patterns
+"pattern" %> action
+
+-- multiple glob (OR)
+["pattern1", "pattern2"] %> action
+
+-- arbitrary predicates
+isPrefixOf "some-prefix" ?> action
+
+-- build multiple files (AND)
+["*.o", "*.hi"] &%> action
+```
+\normalsize
+
+# Writing Actions
+
+\footnotesize
+```haskell
+"pattern" %> \outPath -> do
+  need ["some-input.txt"]
+  somethingSomething outPath
+```
+\normalsize
+
+# Writing Actions
+
+Use `need` to depend on input files
+
+\footnotesize
+```haskell
+need :: [FilePath] -> Action ()
+
+need ["file1", "file2"]
+
+need ["file1"]
+need ["file2"]
+```
+\normalsize
+
+- all arguments in the list are built in parallel
 
 # Running External Commands
 
@@ -231,52 +283,41 @@ withTempDir
 
 \normalsize
 
-# Writing Rules
+# Working With Files
+
+- when possible always prefer `Shake` versions
+- automatic tracking of input
+- `-Changed` functions are handy to avoid unnecessary rebuilds
+
+# Reports
+
+TODODODODODODODODODO
+
+\section{Even Deeper}
+# Even Deeper
+
+- up to this point: how to use `shake` for most things
+- recall: it's a library
+- extension points to customize it to your needs
+
+# Track arbitrary IO actions
+
+- recall: `Action` has a `MonadIO` instance
+- we can therefore use arbitrary `IO` actions
+- instead of `liftIO` you shoudl use `traced`:
 
 \footnotesize
 ```haskell
--- glob patterns
-"pattern" %> action
+traced :: String -> IO a -> Action a
 
--- multiple glob (OR)
-["pattern1", "pattern2"] %> action
-
--- arbitrary predicates
-isPrefixOf "some-prefix" ?> action
-
--- build multiple files (AND)
-["*.o", "*.hi"] &%> action
+download :: String -> FilePath -> Action ()
+download uri outPath = traced "named" $ do
+  r <- Wreq.get uri
+  BL.writeFile target (r ^. Wreq.responseBody)
 ```
 \normalsize
 
-# Writing Actions
-
-\footnotesize
-```haskell
-"pattern" %> \outPath -> do
-  need ["some-input.txt"]
-  somethingSomething outPath
-```
-\normalsize
-
-# Writing Actions
-
-Use `need` to depend on input files
-
-\footnotesize
-```haskell
-need :: [FilePath] -> Action ()
-
-need ["file1", "file2"]
-
-need ["file1"]
-need ["file2"]
-```
-\normalsize
-
-- all arguments in the list are built in parallel
-
-# Depending On Non-Files
+# Non-file dependencies
 
 Shake also supports tracking of other things
 
@@ -296,19 +337,54 @@ Even more powerful: we can define our own using "Oracle rules"
 
 \footnotesize
 ```haskell
-newtype GitHash = GitHash () 
+newtype GitHash = GitHash ()
   deriving (Show,Typeable,Eq,Hashable,Binary,NFData)
-  
+
 shakeArgs shakeOptions $ do
-  addOracle $ \(GitHash ()) -> 
+  addOracle $ \(GitHash ()) ->
     fromStdout <$> cmd "git" ["rev-parse", "--short", "HEAD"]
-  
+
   "some-file" %> \out -> do
     hash <- askOracle (GitHash ())
     doSomething hash
 ```
 \normalsize
 
+# Oracle rules
+
+- with oracles, you can depend on anything you want
+- gotcha: will *always* be run in a build if required
+  - though they only invalidate others if sth. changed
+  
+# Using Resources
+
+- mosts tasks won't be cpu-bound
+- and resources are not infinite
+- if we `need` a list of 1000 images..
+- some form of limit would be good
+- shake: resources and throttles
+
+# Using Resources
+
+- finite resources with limited number of slots: `newResource`
+- throttle how many actions are run in time period: `newThrottle`
+
+\footnotesize
+```haskell
+main :: IO ()
+main = shakeArgs shakeOptions $ do
+  -- max 10 disk usages
+  disk <- newResource "Disk" 10
+  -- max 5 api calls per 60s
+  api <- newThrottle "API" 5 60
+  
+  "*.txt" %> \out ->
+    withResource disk 1 $
+      withResource api 1 $
+        someAction out
+```
+\normalsize
+  
 # Show Me The Monads Already
 
 The two important monadic datatypes in Shake:
@@ -318,12 +394,12 @@ The two important monadic datatypes in Shake:
 \footnotesize
 
 ```haskell
-newtype Rules a = 
-  Rules (WriterT SRules 
-          (ReaderT ShakeOptions IO) 
+newtype Rules a =
+  Rules (WriterT SRules
+          (ReaderT ShakeOptions IO)
             a)
 ```
-            
+
 \normalsize
 
 - Monad to describe build actions: `Action :: * -> *`
@@ -331,9 +407,9 @@ newtype Rules a =
 \footnotesize
 
 ```haskell
-newtype Action a = 
-    Action (ReaderT (S Global Local) 
-             (ContT () IO) 
+newtype Action a =
+    Action (ReaderT (S Global Local)
+             (ContT () IO)
                a)
 ```
 
@@ -345,45 +421,46 @@ newtype Action a =
 
 ![Monads](screenshots/2018-01-18-195324_1552x605_scrot.png){width=100%}
 
-# Custom Caching
+# Case Studies
+\section{Case Studies}
 
-# Writing Commands: Phony
+# Case Studies
 
-# Case Study: Presentations
+- presentations using reveal.js or LaTeX
+  - images are created somehow (graphviz, download)
+  - haskell code is checked via `hlint`
+  - write in markdown, convert via pandoc 
+  - build both `beamer` and `reveal.js` presentation
+- developing RAWs for photography
 
-# Pictures: Manual
+# Presentation: Pictures - Manually
 - google for picture
 - download picture
 - resize picture
 - include in presentation
 - where to store it? git?
 
-# Pictures: Automatic
-- reference image in presentatio
-- define how to download and how to resize
-- use shake to perform all the steps
+# Presentation: Pictures - Automatically
+- reference image in presentation
+- define how to download and how to resize in `image/*.src` files
+```
+{
+  url = "https://i0.wp.com/media.boingboing.net/wp-content/uploads/2016/04/tumblr_o5kf96uI0y1ugyavxo1_1280.jpg",
+  transformations = ["-resize 1101"]
+}
+```
+- define how to convert `.dot` to `.png` (graphviz)
 
 # How to do it
 
-# But what if I have a lot of images?
-
-- Dowloading hundreds of pics at the same time?
-- Problem: it's not CPU bound
-- Shake has two ways to limit this
-
-# Resources And Throttling
-
-1. `newResource` limit max concurrent usage
-2. `newThrottle` limit usage per time unit
-
-# Source Code
+# Presentation: Source Code
 
 - including code quickly leads to a mess
 - write code in slide works
 - modifying is a nightmare
 - let's shake it
 
-# Source Code
+# Presentation: Source Code
 
 the plan:
 
@@ -391,7 +468,7 @@ the plan:
 - extract them into files
 - check them with `hlint`
 
-# Source Code
+# Presentation: Source Code
 
 - lucky: I'm using `pandoc` (amazing!)
 - pandoc allows us to parse and modify the AST
@@ -401,7 +478,7 @@ the plan:
 ```haskell
 extractCodeBlocks :: Pandoc -> [String]
 extractCodeBlocks = query codeBlocks
-  where codeBlocks (CodeBlock (_,classes,_) content) 
+  where codeBlocks (CodeBlock (_,classes,_) content)
           | "haskell" `elem` classes = [content]
           | otherwise = []
         codeBlocks _ = []
@@ -409,10 +486,7 @@ extractCodeBlocks = query codeBlocks
 
 \normalsize
 
-# Case Studies
-\section{Case Studies}
-
-# Producing the presentation
+# Presentation: Build It
 
 This whole presentation is built with Shake
 
@@ -421,19 +495,24 @@ This whole presentation is built with Shake
 - latex is compiled
 - reveal.js downloaded
 
-# Organizing Photos
+# Case Study: Developing RAWs
 
-- basis: `.RAW` files
-- editing creates a "sidecar" file without touching the `.RAW`
-- run program to produce `.jpg` from it
-- create a smaller version for quick sharing
-- pretty cpu intensive! (cannot do all in parallel)
-- only do it for changed files
+- camera produces RAW files with the sensor data
+- nondestructive editors (Adobe Lightroom, RawTherapee, ...) create
+  "sidecar" files
+- develop a `.jpg` from the RAW using this sidecar
+- batch export your images using the editor
+- problems:
+  - this process is very expensive
+  - we want to *avoid* it if nothing changed
+  - we don't want to remember which ones have changed
+- and more would be nice too (resize, rename, delete, ...)
 
-# Getting Information Out Of Shake
+# Case Study: Developing RAWs
 
-- shake can produce reports
-- view command table/plot
-- view rule table/plot
-- display progress during build
-- trace haskell IO actions for reports
+- shake was perfect for this
+- we can `need` dynamically all RAW files
+- run editor to develop the .jpg based on sidecar
+- produce a smaller resized copy for sharing
+- label the copy with watermark and exif information
+- use resources to limit parallel developing of pictures
