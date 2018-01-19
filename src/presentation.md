@@ -46,6 +46,7 @@ Common situation:
 - what's the deal about `shake`?
 - shake is `monadic`
 - make is only `applicative`
+- (let's forget about the unprincipled rest for now)
 - and `Monad` is far more powerful than `Applicative`
 
 # Example
@@ -69,7 +70,7 @@ Common situation:
 ```
 
 # The Library
-\section{The Library}
+\section{Using Shake}
 # The Library
 
 - `Shake` is meant to be used as a library
@@ -97,13 +98,36 @@ It's a library! Awesome because:
 - `Pandoc` for conversions of documents
 - ...
 
-# Printing Information
+# The Library
 
-Shake providescommands to print stuff with different levels:
+you define rules inside the `Rules` monad
 
-- `putLoud`
-- `putNormal`
-- `putQuiet`
+\footnotesize
+```haskell
+(%>) :: FilePattern -> (FilePath -> Action ()) -> Rules () 
+-- usage:
+"filepattern" %> \outPath -> doSomethingWith outPath
+```
+\normalsize
+
+rules specify an `Action` to build the `outPath`
+
+# The Library
+
+The file building action is where you have to do your work
+
+\footnotesize
+```haskell
+generateTime :: FilePath -> Action ByteString
+generateTime outPath = do
+  putNormal "Asking the gods for the current time"
+  Stdout stdout <- cmd "date"
+  return stdout
+  
+dateRule :: Rules ()
+dateRule = "*.time*" %> generateTime
+```
+\normalsize
 
 # Running External Commands
 
@@ -207,25 +231,83 @@ withTempDir
 
 \normalsize
 
-# How To Write Builds: Rules
+# Writing Rules
 
-1. simple rules from patterns with `%>`
-2. match multiple patterns with `|%>`
-3. even more power with `?>`: boolean predicate
-4. what if a single rule builds multiple files? `&%>`
+\footnotesize
+```haskell
+-- glob patterns
+"pattern" %> action
 
-# Depending on input
+-- multiple glob (OR)
+["pattern1", "pattern2"] %> action
+
+-- arbitrary predicates
+isPrefixOf "some-prefix" ?> action
+
+-- build multiple files (AND)
+["*.o", "*.hi"] &%> action
+```
+\normalsize
+
+# Writing Actions
+
+\footnotesize
+```haskell
+"pattern" %> \outPath -> do
+  need ["some-input.txt"]
+  somethingSomething outPath
+```
+\normalsize
+
+# Writing Actions
 
 Use `need` to depend on input files
 
 \footnotesize
 ```haskell
 need :: [FilePath] -> Action ()
+
+need ["file1", "file2"]
+
+need ["file1"]
+need ["file2"]
 ```
 \normalsize
 
-- all arguments in the list can be built in parallel
-- *easy to forget*
+- all arguments in the list are built in parallel
+
+# Depending On Non-Files
+
+Shake also supports tracking of other things
+
+\footnotesize
+```haskell
+example :: Action ()
+example = do
+  home <- getEnv "HOME"
+  contents <- getDirectoryContents "."
+  doSomething home contents
+```
+\normalsize
+
+Even more powerful: we can define our own using "Oracle rules"
+
+# Oracle rules
+
+\footnotesize
+```haskell
+newtype GitHash = GitHash () 
+  deriving (Show,Typeable,Eq,Hashable,Binary,NFData)
+  
+shakeArgs shakeOptions $ do
+  addOracle $ \(GitHash ()) -> 
+    fromStdout <$> cmd "git" ["rev-parse", "--short", "HEAD"]
+  
+  "some-file" %> \out -> do
+    hash <- askOracle (GitHash ())
+    doSomething hash
+```
+\normalsize
 
 # Show Me The Monads Already
 
@@ -262,14 +344,6 @@ newtype Action a =
 # Show Me The Monads Already
 
 ![Monads](screenshots/2018-01-18-195324_1552x605_scrot.png){width=100%}
-
-# Depending On Non-Files
-
-Shake also supports tracking of other things
-
-1. **contents** of a directory
-2. environment variables
-3. arbitrary code via oracles
 
 # Custom Caching
 
