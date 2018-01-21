@@ -27,7 +27,7 @@ Common situation:
 
 # Maintaining A Make Build
 
-![Definitely not fun](images/maintain-make.jpg){width=60%}
+![Definitely not fun](images/maintain-make.jpg){width=75%}
 
 # We Wrote Our Own
 
@@ -55,7 +55,7 @@ Common situation:
 
 # Dressing Up
 
-![Run independent things in parallel](graphviz/dressing_parallel.png){height=60% align=center}
+![Run independent things in parallel](graphviz/dressing_parallel.png){height=60%}
 
 # Dressing Up
 
@@ -69,6 +69,10 @@ Common situation:
 
 # Using Shake
 \section{Using Shake}
+
+# Using Shake
+![Haskell developer explaining the power of Shake](images/help.jpg){height=60%}
+
 # It's a Library
 
 - `Shake` is meant to be used as a library
@@ -297,6 +301,11 @@ withTempDir
 
 # Even Deeper
 \section{Even Deeper}
+
+# Even Deeper
+
+![Haskell developers realizing the full power of Shake](images/realize.jpg){width=80%}
+
 # Even Deeper
 
 - up to this point: how to use `shake` for most things
@@ -425,7 +434,13 @@ newtype Action a =
 ![Monads](screenshots/2018-01-18-195324_1552x605_scrot.png){width=100%}
 
 # Case Studies
+
 \section{Case Studies}
+
+# Case Studies
+
+![Haskell developer eager to apply Shake](images/letsgo.jpg){width=80%}
+
 # Case Studies
 
 - presentations using reveal.js or LaTeX
@@ -525,3 +540,7 @@ This whole presentation is built with Shake
 
 # The End
 \section{The End}
+
+# The End
+
+![Devs show gratitude for the new build](images/gratitude.jpg){height=65%}
